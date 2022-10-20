@@ -1,21 +1,47 @@
-import composer from '.'
+import { percentage } from '@/conversations/setNumberCons'
+import { getCoronaPrice, getGarantexPrice } from '@/services/info'
+import { Composer } from 'grammy'
 
-import { createLoading } from '@/utils'
+export const startParsing = new Composer()
 
-import { getLastTrades, getCoronaPrice } from '@/services/info'
+startParsing.command('start', async (ctx) => {
+  let coronaPricePrev = 0
+  setInterval(async () => {
+    const { check, coronaPrice } = await coronaPriceCheck(coronaPricePrev)
+    coronaPricePrev = coronaPrice
 
-console.log('info')
+    if (!check) return
 
-// `info` - prints out info about asser for last 24 hours
-composer.command('info', async (ctx) => {
-  console.log('info handler')
+    const garantexPrice = await getGarantexPrice()
+    const exceeds = differanceCalculations(coronaPrice, garantexPrice, percentage)
 
-  const answer = await createLoading(ctx)
-  const ans = await getLastTrades()
-  const a = await getCoronaPrice()
+    if (!exceeds) return
 
-  await answer(`${ans}
-${a[0].exchangeRate}`)
-
-  console.log('done')
+    ctx.reply(`Corona Price: ${coronaPrice}, Garantex Price: ${garantexPrice}`)
+  }, 60000)
 })
+
+const coronaPriceCheck = async (
+  prevValue: number
+): Promise<{ check: boolean; coronaPrice: number }> => {
+  const coronaPrice = (await getCoronaPrice())?.exchangeRate
+
+  if (!coronaPrice) return { check: false, coronaPrice: 404 }
+
+  if (Math.abs(coronaPrice - prevValue) <= 0.01) return { check: false, coronaPrice }
+
+  return { check: true, coronaPrice }
+}
+
+const differanceCalculations = (
+  coronaPrice: number,
+  garantexPrice: number,
+  percentage: number
+): boolean => {
+  const percentageDiff = Math.abs((coronaPrice / garantexPrice) * 100) - percentage
+
+  console.log(percentageDiff)
+  if (percentageDiff < 0.8) return false
+
+  return true
+}
