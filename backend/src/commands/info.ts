@@ -3,8 +3,12 @@ import { getCoronaPrice, getGarantexPrice } from '@/services/info'
 import { Composer } from 'grammy'
 
 export const startParsing = new Composer()
+let started = false
 
 startParsing.command('start', async (ctx) => {
+  if (started) return
+  started = true
+
   let coronaPricePrev = 0
   setInterval(async () => {
     const { check, coronaPrice } = await coronaPriceCheck(coronaPricePrev)
